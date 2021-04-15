@@ -13,7 +13,10 @@ import { Credentials, CredentialsOptions } from 'aws-sdk/lib/credentials';
 
 const packageInfo = require("../package.json");
 
-const SERVICE = 'appsync';
+export enum SERVICE {
+    APPSYNC = 'appsync',
+    EXECUTE_API = 'execute-api',
+}
 export const USER_AGENT_HEADER = 'x-amz-user-agent';
 export const USER_AGENT = `aws-amplify/${packageInfo.version}${userAgent && ' '}${userAgent}`;
 
@@ -74,8 +77,7 @@ const headerBasedAuth = async ({ header, value }: Headers = { header: '', value:
 
 };
 
-const iamBasedAuth = async ({ credentials, region, url }, operation, forward) => {
-    const service = SERVICE;
+const iamBasedAuth = async ({ credentials, region, url, service }, operation, forward) => {
     const origContext = operation.getContext();
 
     let creds = typeof credentials === 'function' ? credentials.call() : (credentials || {});
@@ -114,6 +116,7 @@ type AuthOptionsNone = { type: AUTH_TYPE.NONE };
 type AuthOptionsIAM = {
     type: KeysWithType<typeof AUTH_TYPE, AUTH_TYPE.AWS_IAM>,
     credentials: (() => Credentials | CredentialsOptions | Promise<Credentials | CredentialsOptions | null>) | Credentials | CredentialsOptions | null,
+    service: SERVICE,
 };
 type AuthOptionsApiKey = {
     type: KeysWithType<typeof AUTH_TYPE, AUTH_TYPE.API_KEY>,
@@ -137,11 +140,12 @@ export const authLink = ({ url, region, auth: { type } = <AuthOptions>{}, auth }
                     promise = headerBasedAuth(undefined, operation, forward);
                     break;
                 case AUTH_TYPE.AWS_IAM:
-                    const { credentials = {} } = auth;
+                    const { credentials = {}, service = SERVICE.APPSYNC } = auth;
                     promise = iamBasedAuth({
                         credentials,
                         region,
                         url,
+                        service,
                     }, operation, forward);
                     break;
                 case AUTH_TYPE.API_KEY:
